@@ -1,7 +1,7 @@
 # Bball AP - Documentation
 
 ## Overview
-Bball AP is a web application for tracking and analyzing basketball team and player statistics. Upload Excel/CSV files containing player stats, organize teams (your team vs. opponents), search players, and add notes/comments to individual player entries.
+Bball AP is a web application for tracking and analyzing basketball team game statistics. Upload Excel/CSV files containing team game stats, organize teams (your team vs. opponents), search games, and add notes/comments to individual game entries.
 
 ## Tech Stack
 - **Frontend**: React (Create React App)
@@ -15,13 +15,13 @@ bball-ap/
 ├── client/                 # React frontend
 │   ├── src/
 │   │   ├── App.js        # Main application component
-│   │   ├── App.css      # Styling (basketball theme)
-│   │   └── index.js    # React entry point
+│   │   ├── App.css       # Styling (basketball theme)
+│   │   └── index.js      # React entry point
 │   └── package.json
 └── server/               # Express backend
-    ├── index.js         # Server with team/player stats API
-    ├── database.db    # SQLite database
-    └── uploads/      # Uploaded files (temp)
+    ├── index.js          # Server with team/game stats API
+    ├── database.db      # SQLite database
+    └── uploads/         # Uploaded files (temp)
 ```
 
 ## Database Schema
@@ -35,29 +35,22 @@ bball-ap/
 | name | TEXT | Team name (unique) |
 | is_our_team | INTEGER | 1 if "our team", 0 otherwise |
 
-**player_stats**
+**game_stats**
 | Column | Type | Description |
 |--------|------|-------------|
 | id | INTEGER | Primary key |
 | team_id | INTEGER | Foreign key to teams |
-| player_name | TEXT | Player name |
-| games_played | INTEGER | GP (games played) |
-| points_per_game | REAL | PPG |
-| rebounds_per_game | REAL | RPG |
-| assists_per_game | REAL | APG |
+| game_date | TEXT | Date played |
 | fg_pct | REAL | FG% (field goal percentage) |
-| three_pt_pct | REAL | 3P% (three-point percentage) |
-| ft_pct | REAL | FT% (free throw percentage) |
-| steals_per_game | REAL | SPG |
-| blocks_per_game | REAL | BPG |
-| minutes_per_game | REAL | MPG |
+| points_per_possession | REAL | Points per possession |
+| points_allowed | REAL | Points allowed per game |
 | row_data | TEXT | Full row data as JSON |
 
 **comments**
 | Column | Type | Description |
 |--------|------|-------------|
 | id | INTEGER | Primary key |
-| player_id | INTEGER | Foreign key to player_stats |
+| game_id | INTEGER | Foreign key to game_stats |
 | comment | TEXT | Note text |
 | created_at | TEXT | Timestamp |
 
@@ -67,36 +60,30 @@ bball-ap/
 |----------|--------|--------------|
 | `/api/upload` | POST | Upload Excel file with team stats |
 | `/api/teams` | GET | Get all teams |
-| `/api/players` | GET | Get players (filter by `type`: our/other/all, `team` id, `search` text) |
-| `/api/players/:id/comments` | GET | Get comments for a player |
-| `/api/players/:id/comments` | POST | Add comment to player |
+| `/api/games` | GET | Get games (filter by `type`: our/other/all, `team` id, `search` text) |
+| `/api/games/:id/comments` | GET | Get comments for a game |
+| `/api/games/:id/comments` | POST | Add comment to game |
 | `/api/comments/:id` | DELETE | Delete a comment |
 | `/api/teams/:id/our-team` | PUT | Toggle "our team" status |
 
 ## Excel File Format
 
 Expected columns (case-insensitive):
-- **Player** - Player name
-- **GP** - Games played
-- **PPG** - Points per game
-- **RPG** - Rebounds per game
-- **APG** - Assists per game
-- **FG%** - Field goal percentage
-- **3P%** - Three-point percentage
-- **FT%** - Free throw percentage
-- **SPG** - Steals per game
-- **BPG** - Blocks per game
-- **MPG** - Minutes per game
+- **Team** - Team name (optional, if using upload form)
+- **Date Played** / **Date** - Game date
+- **FG%** / **fg** - Field goal percentage
+- **Points Per Possession** / **PPP** / **Points Per Pos** - Points per possession
+- **Points Allowed Per Game** / **Pts Allowed** / **Points Allowed** - Points allowed per game
 
 ## Frontend Features
 
 ### Tabs
-- **Our Team** - Players from teams marked as "our team"
-- **Other Teams** - Players from opponent teams
-- **Overall Teams** - All players across all teams
+- **Our Team** - Games from teams marked as "our team"
+- **Other Teams** - Games from opponent teams
+- **Overall Teams** - All games across all teams
 
 ### Search
-Search by player name or team name.
+Search by team name.
 
 ### Upload Form
 - Enter team name
@@ -104,8 +91,8 @@ Search by player name or team name.
 - Select Excel/CSV file
 - Click "Upload Stats"
 
-### Player Notes
-Click any player row to view/add notes about that player.
+### Game Notes
+Click any game row to view/add notes about that game.
 
 ### Teams Sidebar
 Shows all teams with toggle to mark/unmark as "our team".
@@ -119,14 +106,15 @@ Shows all teams with toggle to mark/unmark as "our team".
 - Secondary: #4ecdc4 (teal)
 
 **Stats Highlighting**:
-- PPG: Orange (#ff6b35)
-- FG%/3P%/FT%: Teal (#4ecdc4)
+- FG%: Teal (#4ecdc4)
+- Points/Pos: Orange (#ff6b35)
+- Points Allowed: Red (#ff4444)
 
 **Layout**:
 - Dark theme with basketball court aesthetic
 - Tabbed navigation for Our Team / Other Teams / Overall Teams
 - Fixed sidebar showing all teams
-- Split view: stats table + player notes panel
+- Split view: stats table + game notes panel
 
 ## Running the App
 
@@ -184,3 +172,11 @@ After making code changes, restart the server and client:
 # Kill existing processes (Ctrl+C in each terminal)
 # Then restart as shown above
 ```
+
+## Data Reset
+
+To clear all data and start fresh, delete the database file:
+```bash
+rm server/database.db
+```
+Then restart the server (it will recreate the database automatically).

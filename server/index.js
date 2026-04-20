@@ -30,30 +30,23 @@ async function initDb() {
       is_our_team INTEGER DEFAULT 0
     );
 
-    CREATE TABLE IF NOT EXISTS player_stats (
+    CREATE TABLE IF NOT EXISTS game_stats (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       team_id INTEGER NOT NULL,
-      player_name TEXT NOT NULL,
-      games_played INTEGER,
-      points_per_game REAL,
-      rebounds_per_game REAL,
-      assists_per_game REAL,
+      game_date TEXT NOT NULL,
       fg_pct REAL,
-      three_pt_pct REAL,
-      ft_pct REAL,
-      steals_per_game REAL,
-      blocks_per_game REAL,
-      minutes_per_game REAL,
+      points_per_possession REAL,
+      points_allowed REAL,
       row_data TEXT NOT NULL,
       FOREIGN KEY (team_id) REFERENCES teams(id)
     );
 
     CREATE TABLE IF NOT EXISTS comments (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      player_id INTEGER NOT NULL,
+      game_id INTEGER NOT NULL,
       comment TEXT NOT NULL,
       created_at TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (player_id) REFERENCES player_stats(id)
+      FOREIGN KEY (game_id) REFERENCES game_stats(id)
     );
   `);
   saveDb();
@@ -88,7 +81,7 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
     const data = xlsx.utils.sheet_to_json(worksheet);
 
     db.run('DELETE FROM comments');
-    db.run('DELETE FROM player_stats');
+    db.run('DELETE FROM game_stats');
     db.run('DELETE FROM teams');
 
     const teamName = req.body.teamName || 'Unknown Team';
@@ -98,44 +91,17 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
     const teamResult = db.exec('SELECT last_insert_rowid() as id');
     const teamId = teamResult[0].values[0][0];
 
-    const columns = ['Player', 'GP', 'PPG', 'RPG', 'APG', 'FG%', '3P%', 'FT%', 'SPG', 'BPG', 'MPG'];
-    const columnMap = {
-      'Player': 'player_name',
-      'GP': 'games_played',
-      'PPG': 'points_per_game',
-      'RPG': 'rebounds_per_game',
-      'APG': 'assists_per_game',
-      'FG%': 'fg_pct',
-      '3P%': 'three_pt_pct',
-      'FT%': 'ft_pct',
-      'SPG': 'steals_per_game',
-      'BPG': 'blocks_per_game',
-      'MPG': 'minutes_per_game'
-    };
-
-    const stmt = db.prepare(`INSERT INTO player_stats 
-      (team_id, player_name, games_played, points_per_game, rebounds_per_game, assists_per_game, 
-       fg_pct, three_pt_pct, ft_pct, steals_per_game, blocks_per_game, minutes_per_game, row_data) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+    const stmt = db.prepare(`INSERT INTO game_stats 
+      (team_id, game_date, fg_pct, points_per_possession, points_allowed, row_data) 
+      VALUES (?, ?, ?, ?, ?, ?)`);
 
     for (const row of data) {
-      const rowData = {};
-      columns.forEach(col => {
-        rowData[columnMap[col]] = row[col];
-      });
       stmt.run([
         teamId,
-        row['Player'] || '',
-        row['GP'] || 0,
-        row['PPG'] || 0,
-        row['RPG'] || 0,
-        row['APG'] || 0,
-        row['FG%'] || 0,
-        row['3P%'] || 0,
-        row['FT%'] || 0,
-        row['SPG'] || 0,
-        row['BPG'] || 0,
-        row['MPG'] || 0,
+        row['Date Played'] || row['Date'] || new Date().toISOString().split('T')[0],
+        row['FG%'] || row['fg'] || 0,
+        row['Points Per Possession'] || row['PPP'] || row['Points Per Pos'] || 0,
+        row['Points Allowed Per Game'] || row['Pts Allowed'] || row['Points Allowed'] || 0,
         JSON.stringify(row)
       ]);
     }
@@ -168,13 +134,13 @@ app.get('/api/teams', (req, res) => {
   }
 });
 
-app.get('/api/players', (req, res) => {
+app.get('/api/games', (req, res) => {
   try {
     const { team, type, search } = req.query;
     let query = `
-      SELECT ps.*, t.name as team_name, t.is_our_team 
-      FROM player_stats ps 
-      JOIN teams t ON ps.team_id = t.id 
+      SELECT gs.*, t.name as team_name, t.is_our_team 
+      FROM game_stats gs 
+      JOIN teams t ON gs.team_id = t.id 
       WHERE 1=1
     `;
     const params = [];
@@ -189,34 +155,34 @@ app.get('/api/players', (req, res) => {
     }
 
     if (search) {
-      query += ' AND (ps.player_name LIKE ? OR t.name LIKE ?)';
+      query += ' AND (t.name LIKE ?)';
       const searchTerm = `%${search}%`;
-      params.push(searchTerm, searchTerm);
+      params.push(searchTerm);
     }
 
-    query += ' ORDER BY ps.points_per_game DESC';
+    query += ' ORDER BY gs.game_date DESC';
 
     const rows = db.exec(query, params);
     if (rows.length === 0) {
       return res.json([]);
     }
     const columns = rows[0].columns;
-    const players = rows[0].values.map(row => {
+    const games = rows[0].values.map(row => {
       const obj = {};
       columns.forEach((col, i) => obj[col] = row[i]);
       obj.row_data = JSON.parse(obj.row_data || '{}');
       return obj;
     });
-    res.json(players);
+    res.json(games);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-app.get('/api/players/:playerId/comments', (req, res) => {
+app.get('/api/games/:gameId/comments', (req, res) => {
   try {
     const rows = db.exec(
-      `SELECT * FROM comments WHERE player_id = ${req.params.playerId} ORDER BY created_at DESC`
+      `SELECT * FROM comments WHERE game_id = ${req.params.gameId} ORDER BY created_at DESC`
     );
     if (rows.length === 0) {
       return res.json([]);
@@ -233,20 +199,20 @@ app.get('/api/players/:playerId/comments', (req, res) => {
   }
 });
 
-app.post('/api/players/:playerId/comments', (req, res) => {
+app.post('/api/games/:gameId/comments', (req, res) => {
   try {
     const { comment } = req.body;
     if (!comment) {
       return res.status(400).json({ error: 'Comment is required' });
     }
     db.run(
-      'INSERT INTO comments (player_id, comment) VALUES (?, ?)',
-      [req.params.playerId, comment]
+      'INSERT INTO comments (game_id, comment) VALUES (?, ?)',
+      [req.params.gameId, comment]
     );
     const result = db.exec('SELECT last_insert_rowid() as id');
     const id = result[0].values[0][0];
     saveDb();
-    res.json({ id, player_id: req.params.playerId, comment });
+    res.json({ id, game_id: req.params.gameId, comment });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

@@ -262,13 +262,23 @@ td {
   font-weight: 700;
 }
 
-.stat-ppg {
-  color: #ff6b35;
-  font-weight: 700;
+.stat-date {
+  color: #aaa;
 }
 
 .stat-fg {
   color: #4ecdc4;
+  font-weight: 600;
+}
+
+.stat-ppp {
+  color: #ff6b35;
+  font-weight: 700;
+}
+
+.stat-pts-allowed {
+  color: #ff4444;
+  font-weight: 600;
 }
 
 tr {

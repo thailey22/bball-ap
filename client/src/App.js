@@ -6,14 +6,14 @@ const API_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api';
 
 function App() {
   const [activeTab, setActiveTab] = useState('our');
-  const [players, setPlayers] = useState([]);
+  const [games, setGames] = useState([]);
   const [teams, setTeams] = useState([]);
   const [file, setFile] = useState(null);
   const [teamName, setTeamName] = useState('');
   const [isOurTeam, setIsOurTeam] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [search, setSearch] = useState('');
-  const [selectedPlayer, setSelectedPlayer] = useState(null);
+  const [selectedGame, setSelectedGame] = useState(null);
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
 
@@ -22,7 +22,7 @@ function App() {
   }, []);
 
   useEffect(() => {
-    fetchPlayers();
+    fetchGames();
   }, [activeTab, search]);
 
   const fetchTeams = async () => {
@@ -34,13 +34,13 @@ function App() {
     }
   };
 
-  const fetchPlayers = async () => {
+  const fetchGames = async () => {
     try {
       const type = activeTab === 'all' ? 'all' : activeTab;
-      const res = await axios.get(`${API_URL}/players`, {
+      const res = await axios.get(`${API_URL}/games`, {
         params: { type, search }
       });
-      setPlayers(res.data);
+      setGames(res.data);
     } catch (err) {
       console.error(err);
     }
@@ -61,7 +61,7 @@ function App() {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       await fetchTeams();
-      await fetchPlayers();
+      await fetchGames();
       setFile(null);
       setTeamName('');
       setIsOurTeam(false);
@@ -73,33 +73,33 @@ function App() {
 
   const handleSearch = (e) => {
     e.preventDefault();
-    fetchPlayers();
+    fetchGames();
   };
 
-  const fetchComments = async (playerId) => {
+  const fetchComments = async (gameId) => {
     try {
-      const res = await axios.get(`${API_URL}/players/${playerId}/comments`);
+      const res = await axios.get(`${API_URL}/games/${gameId}/comments`);
       setComments(res.data);
     } catch (err) {
       console.error(err);
     }
   };
 
-  const handleRowClick = (player) => {
-    setSelectedPlayer(player);
-    fetchComments(player.id);
+  const handleRowClick = (game) => {
+    setSelectedGame(game);
+    fetchComments(game.id);
   };
 
   const handleAddComment = async (e) => {
     e.preventDefault();
-    if (!newComment.trim() || !selectedPlayer) return;
+    if (!newComment.trim() || !selectedGame) return;
 
     try {
-      await axios.post(`${API_URL}/players/${selectedPlayer.id}/comments`, {
+      await axios.post(`${API_URL}/games/${selectedGame.id}/comments`, {
         comment: newComment
       });
       setNewComment('');
-      fetchComments(selectedPlayer.id);
+      fetchComments(selectedGame.id);
     } catch (err) {
       alert('Failed to add comment: ' + err.message);
     }
@@ -108,7 +108,7 @@ function App() {
   const handleDeleteComment = async (commentId) => {
     try {
       await axios.delete(`${API_URL}/comments/${commentId}`);
-      if (selectedPlayer) fetchComments(selectedPlayer.id);
+      if (selectedGame) fetchComments(selectedGame.id);
     } catch (err) {
       console.error(err);
     }
@@ -120,13 +120,13 @@ function App() {
         isOurTeam: !team.is_our_team
       });
       await fetchTeams();
-      await fetchPlayers();
+      await fetchGames();
     } catch (err) {
       console.error(err);
     }
   };
 
-  const columns = ['Player', 'GP', 'PPG', 'RPG', 'APG', 'FG%', '3P%', 'FT%', 'SPG', 'BPG', 'MPG'];
+  const columns = ['Date', 'FG%', 'PTS/Pos', 'PTS Allowed'];
 
   return (
     <div className="app">
@@ -188,7 +188,7 @@ function App() {
         <form onSubmit={handleSearch}>
           <input
             type="text"
-            placeholder="Search player or team..."
+            placeholder="Search team..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -198,7 +198,7 @@ function App() {
 
       <div className="content">
         <div className="data-table">
-          {players.length === 0 ? (
+          {games.length === 0 ? (
             <p className="empty">No data. Upload team stats to get started.</p>
           ) : (
             <table>
@@ -211,27 +211,20 @@ function App() {
                 </tr>
               </thead>
               <tbody>
-                {players.map(player => (
+                {games.map(game => (
                   <tr
-                    key={player.id}
-                    onClick={() => handleRowClick(player)}
-                    className={selectedPlayer?.id === player.id ? 'selected' : ''}
+                    key={game.id}
+                    onClick={() => handleRowClick(game)}
+                    className={selectedGame?.id === game.id ? 'selected' : ''}
                   >
                     <td className="team-name">
-                      {player.team_name}
-                      {player.is_our_team === 1 && <span className="badge">OUR</span>}
+                      {game.team_name}
+                      {game.is_our_team === 1 && <span className="badge">OUR</span>}
                     </td>
-                    <td>{player.player_name}</td>
-                    <td>{player.games_played}</td>
-                    <td className="stat-ppg">{player.points_per_game?.toFixed(1)}</td>
-                    <td>{player.rebounds_per_game?.toFixed(1)}</td>
-                    <td>{player.assists_per_game?.toFixed(1)}</td>
-                    <td className="stat-fg">{player.fg_pct?.toFixed(1)}%</td>
-                    <td className="stat-fg">{player.three_pt_pct?.toFixed(1)}%</td>
-                    <td className="stat-fg">{player.ft_pct?.toFixed(1)}%</td>
-                    <td>{player.steals_per_game?.toFixed(1)}</td>
-                    <td>{player.blocks_per_game?.toFixed(1)}</td>
-                    <td>{player.minutes_per_game?.toFixed(1)}</td>
+                    <td className="stat-date">{game.game_date}</td>
+                    <td className="stat-fg">{game.fg_pct?.toFixed(1)}%</td>
+                    <td className="stat-ppp">{game.points_per_possession?.toFixed(2)}</td>
+                    <td className="stat-pts-allowed">{game.points_allowed?.toFixed(1)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -240,18 +233,18 @@ function App() {
         </div>
 
         <div className="comments-panel">
-          <h3>Player Notes</h3>
-          {selectedPlayer ? (
+          <h3>Game Notes</h3>
+          {selectedGame ? (
             <>
               <div className="player-info">
-                <h4>{selectedPlayer.player_name}</h4>
-                <p>{selectedPlayer.team_name} | {selectedPlayer.games_played} GP | {selectedPlayer.points_per_game?.toFixed(1)} PPG</p>
+                <h4>{selectedGame.team_name}</h4>
+                <p>{selectedGame.game_date} | FG%: {selectedGame.fg_pct?.toFixed(1)}% | PTS/Pos: {selectedGame.points_per_possession?.toFixed(2)}</p>
               </div>
               <form onSubmit={handleAddComment} className="comment-form">
                 <textarea
                   value={newComment}
                   onChange={(e) => setNewComment(e.target.value)}
-                  placeholder="Add a note about this player..."
+                  placeholder="Add a note about this game..."
                 />
                 <button type="submit">Add Note</button>
               </form>
@@ -277,7 +270,7 @@ function App() {
               </div>
             </>
           ) : (
-            <p className="empty">Select a player to view/add notes.</p>
+            <p className="empty">Select a game to view/add notes.</p>
           )}
         </div>
       </div>
