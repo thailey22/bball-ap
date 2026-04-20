@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  server:
+    build: ./server
+    ports:
+      - "5000:5000"
+    command: npm start
+
+  client:
+    build: ./client
+    ports:
+      - "3000:3000"
+    stdin_open: true
+    command: npm start
+    environment:
+      - REACT_APP_API_URL=http://server:5000/api
+    depends_on:
+      - server
